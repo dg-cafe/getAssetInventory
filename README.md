@@ -36,6 +36,8 @@ A single-file, production-ready Python tool that:
 
 ## Quickstart (Test in < 5 minutes)
 
+The short version is below. For full per-platform instructions (PowerShell, cmd, macOS, Linux), see the [Operating Guide by Operating System](#operating-guide-by-operating-system).
+
 ### 1. Create & activate a virtual environment (required)
 
 The script exits with setup instructions if it is not run inside a virtual environment.
@@ -118,6 +120,576 @@ tail -f qualys_asset_inventory_*/getassetinventory.log
 ```powershell
 # Windows PowerShell
 Get-Content (Get-ChildItem qualys_asset_inventory_*\getassetinventory.log | Select-Object -Last 1) -Wait
+```
+
+---
+
+## Operating Guide by Operating System
+
+Step-by-step instructions for each platform, from a clean machine to viewing results:
+
+- [Windows PowerShell](#windows-powershell)
+- [Windows Command Prompt (cmd)](#windows-command-prompt-cmd)
+- [macOS](#macos)
+- [Linux](#linux)
+
+Each guide covers the same steps: build the virtual environment, install `requests` and `psutil`, test the help, view/set/unset environment variables (including `q_filter` and `q_asset_last_updated`), run the application, and review the results.
+
+> **Note:** The script checks for a virtual environment and the required packages before anything else, including `-h`. Complete steps 1–3 before testing the help.
+
+> **Reminder:** Command-line flags always override environment variables. Every value used, and where it came from (`cli`, `env:q_...`, `default`, or `prompt`), is recorded at the top of the log.
+
+---
+
+### Windows PowerShell
+
+#### 1. Check Python (3.9 or later)
+
+```powershell
+python --version
+# or, if "python" opens the Microsoft Store or isn't found, use the Python launcher:
+py -3 --version
+```
+
+If Python is missing, install it from [python.org](https://www.python.org/downloads/windows/) and tick **"Add python.exe to PATH"** during setup. Wherever this guide says `python`, you can use `py -3` instead.
+
+#### 2. Build and activate the virtual environment
+
+```powershell
+cd C:\path\to\getassetinventory          # folder containing getassetinventory.py
+python -m venv qualys_env
+.\qualys_env\Scripts\Activate.ps1
+```
+
+If activation fails with *"running scripts is disabled on this system"*, allow scripts for this window only, then activate again:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\qualys_env\Scripts\Activate.ps1
+```
+
+The prompt now starts with `(qualys_env)`.
+
+#### 3. Install requests and psutil into the virtual environment
+
+```powershell
+python -m pip install --upgrade pip
+python -m pip install requests psutil
+python -m pip show requests psutil       # confirm both are installed
+```
+
+#### 4. Test the application help
+
+```powershell
+python getassetinventory.py -h
+python getassetinventory.py --version
+```
+
+#### 5. View, set, and unset environment variables
+
+**View** all tool variables currently set:
+
+```powershell
+Get-ChildItem Env:q_*
+```
+
+**Set** the required variables:
+
+```powershell
+$env:q_gateway  = "gateway.qg1.apps.qualys.com"
+$env:q_username = "your_qualys_username"
+$env:q_password = "your_qualys_password"   # or leave unset to be prompted securely
+```
+
+**Set** the filter (single quotes keep the JSON intact):
+
+```powershell
+$env:q_filter = '{"filters":[{"field":"operatingSystem.category1","operator":"EQUALS","value":"Windows"}]}'
+```
+
+**Set** the date window (default is the last 7 days; use an old date for all assets):
+
+```powershell
+$env:q_asset_last_updated = "1970-01-01T00:00:00Z"
+```
+
+**Set** other options the same way, for example:
+
+```powershell
+$env:q_page_size = "300"
+$env:q_max_pages = "2"        # test limit; remove it for a full run
+```
+
+**Unset** a single variable, or all tool variables:
+
+```powershell
+Remove-Item Env:q_filter
+Remove-Item Env:q_asset_last_updated
+Get-ChildItem Env:q_* | Remove-Item      # clears every q_* variable
+```
+
+Variables set this way last only for the current PowerShell window. To keep non-secret settings for future windows, use `[Environment]::SetEnvironmentVariable("q_gateway", "gateway.qg1.apps.qualys.com", "User")`. Avoid storing `q_password` permanently.
+
+#### 6. Run the application
+
+```powershell
+# Small test: one API call
+python getassetinventory.py --max-pages 1
+
+# Full run using the environment variables
+python getassetinventory.py
+
+# Override an environment variable for one run
+python getassetinventory.py --assetLastUpdated 2026-09-01T00:00:00Z
+
+# Filter from a file instead of an environment variable
+python getassetinventory.py --filter "@filter.json"
+
+# Exit code of the last run (0 = success)
+$LASTEXITCODE
+```
+
+To watch progress from a second PowerShell window:
+
+```powershell
+$run = Get-ChildItem -Directory qualys_asset_inventory_* | Sort-Object Name | Select-Object -Last 1
+Get-Content "$($run.FullName)\getassetinventory.log" -Wait -Tail 20
+```
+
+#### 7. View the final results
+
+```powershell
+# Latest run folder and its files
+$run = Get-ChildItem -Directory qualys_asset_inventory_* | Sort-Object Name | Select-Object -Last 1
+Get-ChildItem $run.FullName
+
+# Final summary from the log
+Select-String -Path "$($run.FullName)\getassetinventory.log" -Pattern "RUN |Expected assets|Assets retrieved|Output files|Retries performed|Total time"
+
+# Count assets across all output files
+python -c "import json,glob,sys; print(sum(len((json.load(open(f,encoding='utf-8')).get('assetListData') or {}).get('asset') or []) for f in glob.glob(sys.argv[1]+'/asset_inventory_*.json')))" $run.FullName
+
+# Open the first page or the log
+notepad "$($run.FullName)\asset_inventory_00001.json"
+notepad "$($run.FullName)\getassetinventory.log"
+```
+
+#### 8. Finish
+
+```powershell
+deactivate
+```
+
+---
+
+### Windows Command Prompt (cmd)
+
+#### 1. Check Python (3.9 or later)
+
+```bat
+python --version
+REM or use the Python launcher:
+py -3 --version
+```
+
+If Python is missing, install it from [python.org](https://www.python.org/downloads/windows/) and tick **"Add python.exe to PATH"** during setup.
+
+#### 2. Build and activate the virtual environment
+
+```bat
+cd C:\path\to\getassetinventory
+python -m venv qualys_env
+qualys_env\Scripts\activate.bat
+```
+
+The prompt now starts with `(qualys_env)`.
+
+#### 3. Install requests and psutil into the virtual environment
+
+```bat
+python -m pip install --upgrade pip
+python -m pip install requests psutil
+python -m pip show requests psutil
+```
+
+#### 4. Test the application help
+
+```bat
+python getassetinventory.py -h
+python getassetinventory.py --version
+```
+
+#### 5. View, set, and unset environment variables
+
+**View** all tool variables currently set:
+
+```bat
+set q_
+```
+
+**Set** the required variables (no spaces around `=`):
+
+```bat
+set q_gateway=gateway.qg1.apps.qualys.com
+set q_username=your_qualys_username
+set q_password=your_qualys_password
+```
+
+Leave `q_password` unset to be prompted securely instead.
+
+**Set** the filter. Wrap the whole assignment in double quotes so cmd keeps the JSON intact:
+
+```bat
+set "q_filter={"filters":[{"field":"operatingSystem.category1","operator":"EQUALS","value":"Windows"}]}"
+```
+
+**Set** the date window (default is the last 7 days; use an old date for all assets):
+
+```bat
+set q_asset_last_updated=1970-01-01T00:00:00Z
+```
+
+**Set** other options the same way, for example:
+
+```bat
+set q_page_size=300
+set q_max_pages=2
+```
+
+**Unset** a variable by assigning nothing:
+
+```bat
+set q_filter=
+set q_asset_last_updated=
+set q_max_pages=
+```
+
+Variables set this way last only for the current Command Prompt window. `setx q_gateway gateway.qg1.apps.qualys.com` saves a value for future windows (not the current one). Avoid saving `q_password` with `setx`.
+
+#### 6. Run the application
+
+```bat
+REM Small test: one API call
+python getassetinventory.py --max-pages 1
+
+REM Full run using the environment variables
+python getassetinventory.py
+
+REM Override an environment variable for one run
+python getassetinventory.py --assetLastUpdated 2026-09-01T00:00:00Z
+
+REM Filter from a file
+python getassetinventory.py --filter @filter.json
+
+REM Exit code of the last run (0 = success)
+echo %ERRORLEVEL%
+```
+
+cmd has no built-in `tail`; to watch progress from a second window, use PowerShell's `Get-Content -Wait` (see the PowerShell guide) or open the log in Notepad and reopen it to refresh.
+
+#### 7. View the final results
+
+```bat
+REM List run folders (newest first), then set RUN to the one you want
+dir /b /ad /o-n qualys_asset_inventory_*
+set RUN=qualys_asset_inventory_20260929121000
+
+REM Files in the run folder
+dir %RUN%
+
+REM Final summary from the log
+findstr /C:"RUN " /C:"Expected assets" /C:"Assets retrieved" /C:"Output files" /C:"Retries performed" /C:"Total time" "%RUN%\getassetinventory.log"
+
+REM Count assets across all output files
+python -c "import json,glob,sys; print(sum(len((json.load(open(f,encoding='utf-8')).get('assetListData') or {}).get('asset') or []) for f in glob.glob(sys.argv[1]+'/asset_inventory_*.json')))" %RUN%
+
+REM Open the first page or the log
+notepad %RUN%\asset_inventory_00001.json
+notepad %RUN%\getassetinventory.log
+```
+
+#### 8. Finish
+
+```bat
+deactivate
+```
+
+---
+
+### macOS
+
+#### 1. Check Python (3.9 or later)
+
+```bash
+python3 --version
+```
+
+If Python 3.9+ is missing, install it from [python.org](https://www.python.org/downloads/macos/) or with Homebrew (`brew install python`).
+
+#### 2. Build and activate the virtual environment
+
+```bash
+cd ~/path/to/getassetinventory
+python3 -m venv qualys_env
+source qualys_env/bin/activate
+```
+
+The prompt now starts with `(qualys_env)`. Inside the environment, `python` and `python3` both point to the venv's Python.
+
+#### 3. Install requests and psutil into the virtual environment
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install requests psutil
+python -m pip show requests psutil
+```
+
+#### 4. Test the application help
+
+```bash
+python getassetinventory.py -h
+python getassetinventory.py --version
+```
+
+#### 5. View, set, and unset environment variables
+
+**View** all tool variables currently set:
+
+```bash
+env | grep '^q_'
+```
+
+**Set** the required variables:
+
+```bash
+export q_gateway="gateway.qg1.apps.qualys.com"
+export q_username="your_qualys_username"
+read -s -p "Qualys password: " q_password && echo && export q_password   # typed without echo
+```
+
+Or leave `q_password` unset and the script prompts for it.
+
+**Set** the filter (single quotes keep the JSON intact):
+
+```bash
+export q_filter='{"filters":[{"field":"operatingSystem.category1","operator":"EQUALS","value":"Windows"}]}'
+```
+
+**Set** the date window (default is the last 7 days; use an old date for all assets):
+
+```bash
+export q_asset_last_updated="1970-01-01T00:00:00Z"
+```
+
+**Set** other options the same way, for example:
+
+```bash
+export q_page_size=300
+export q_max_pages=2
+```
+
+**Unset** a single variable, or all tool variables:
+
+```bash
+unset q_filter
+unset q_asset_last_updated
+unset $(env | grep -o '^q_[^=]*')        # clears every q_* variable
+```
+
+Variables set this way last only for the current Terminal session. To keep non-secret settings, add the `export` lines to `~/.zshrc` (the default macOS shell) and run `source ~/.zshrc`. Avoid storing `q_password` there.
+
+#### 6. Run the application
+
+```bash
+# Small test: one API call
+python getassetinventory.py --max-pages 1
+
+# Full run using the environment variables
+python getassetinventory.py
+
+# Override an environment variable for one run
+python getassetinventory.py --assetLastUpdated 2026-09-01T00:00:00Z
+
+# Filter from a file
+python getassetinventory.py --filter @filter.json
+
+# Exit code of the last run (0 = success)
+echo $?
+```
+
+To watch progress from a second Terminal window:
+
+```bash
+tail -f "$(ls -d qualys_asset_inventory_* | tail -1)/getassetinventory.log"
+```
+
+#### 7. View the final results
+
+```bash
+# Latest run folder and its files
+RUN=$(ls -d qualys_asset_inventory_* | tail -1)
+ls -lh "$RUN"
+
+# Final summary from the log
+grep -E "RUN |Expected assets|Assets retrieved|Output files|Retries performed|Total time" "$RUN/getassetinventory.log"
+
+# Count assets across all output files
+python -c "import json,glob,sys; print(sum(len((json.load(open(f,encoding='utf-8')).get('assetListData') or {}).get('asset') or []) for f in glob.glob(sys.argv[1]+'/asset_inventory_*.json')))" "$RUN"
+
+# Browse the first page and the log
+less "$RUN/asset_inventory_00001.json"
+less "$RUN/getassetinventory.log"
+open "$RUN"                               # open the folder in Finder
+```
+
+#### 8. Finish
+
+```bash
+deactivate
+```
+
+---
+
+### Linux
+
+#### 1. Check Python (3.9 or later) and the venv module
+
+```bash
+python3 --version
+```
+
+Install Python and the virtual environment module if needed:
+
+```bash
+# Debian / Ubuntu
+sudo apt update && sudo apt install -y python3 python3-venv python3-pip
+
+# RHEL / Rocky / AlmaLinux / Fedora
+sudo dnf install -y python3 python3-pip
+```
+
+#### 2. Build and activate the virtual environment
+
+```bash
+cd ~/path/to/getassetinventory
+python3 -m venv qualys_env
+source qualys_env/bin/activate
+```
+
+The prompt now starts with `(qualys_env)`.
+
+#### 3. Install requests and psutil into the virtual environment
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install requests psutil
+python -m pip show requests psutil
+```
+
+#### 4. Test the application help
+
+```bash
+python getassetinventory.py -h
+python getassetinventory.py --version
+```
+
+#### 5. View, set, and unset environment variables
+
+**View** all tool variables currently set:
+
+```bash
+env | grep '^q_'
+```
+
+**Set** the required variables:
+
+```bash
+export q_gateway="gateway.qg1.apps.qualys.com"
+export q_username="your_qualys_username"
+read -s -p "Qualys password: " q_password && echo && export q_password   # typed without echo
+```
+
+Or leave `q_password` unset and the script prompts for it.
+
+**Set** the filter (single quotes keep the JSON intact):
+
+```bash
+export q_filter='{"filters":[{"field":"operatingSystem.category1","operator":"EQUALS","value":"Windows"}]}'
+```
+
+**Set** the date window (default is the last 7 days; use an old date for all assets):
+
+```bash
+export q_asset_last_updated="1970-01-01T00:00:00Z"
+```
+
+**Set** other options the same way, for example:
+
+```bash
+export q_page_size=300
+export q_max_pages=2
+```
+
+**Unset** a single variable, or all tool variables:
+
+```bash
+unset q_filter
+unset q_asset_last_updated
+unset $(env | grep -o '^q_[^=]*')        # clears every q_* variable
+```
+
+Variables set this way last only for the current shell session. To keep non-secret settings, add the `export` lines to `~/.bashrc` and run `source ~/.bashrc`. For scheduled runs (cron, systemd), supply credentials from a secret manager rather than a profile file.
+
+#### 6. Run the application
+
+```bash
+# Small test: one API call
+python getassetinventory.py --max-pages 1
+
+# Full run using the environment variables
+python getassetinventory.py
+
+# Override an environment variable for one run
+python getassetinventory.py --assetLastUpdated 2026-09-01T00:00:00Z
+
+# Filter from a file
+python getassetinventory.py --filter @filter.json
+
+# Long run that survives logging out of an SSH session
+nohup python getassetinventory.py > run.out 2>&1 &
+
+# Exit code of the last foreground run (0 = success)
+echo $?
+```
+
+To watch progress from a second terminal:
+
+```bash
+tail -f "$(ls -d qualys_asset_inventory_* | tail -1)/getassetinventory.log"
+```
+
+#### 7. View the final results
+
+```bash
+# Latest run folder and its files
+RUN=$(ls -d qualys_asset_inventory_* | tail -1)
+ls -lh "$RUN"
+
+# Final summary from the log
+grep -E "RUN |Expected assets|Assets retrieved|Output files|Retries performed|Total time" "$RUN/getassetinventory.log"
+
+# Count assets across all output files
+python -c "import json,glob,sys; print(sum(len((json.load(open(f,encoding='utf-8')).get('assetListData') or {}).get('asset') or []) for f in glob.glob(sys.argv[1]+'/asset_inventory_*.json')))" "$RUN"
+
+# Browse the first page and the log
+less "$RUN/asset_inventory_00001.json"
+less "$RUN/getassetinventory.log"
+```
+
+#### 8. Finish
+
+```bash
+deactivate
 ```
 
 ---
