@@ -15,6 +15,40 @@ A single-file, production-ready Python tool that:
 
 ---
 
+## Table of Contents
+
+1. [Features](#features) — what the tool does
+2. [Quickstart (Test in < 5 minutes)](#quickstart-test-in--5-minutes) — shortest path to a first run
+3. [Operating Guide by Operating System](#operating-guide-by-operating-system) — setup, environment variables, running, and results
+   - [Windows PowerShell](#windows-powershell)
+   - [Windows Command Prompt (cmd)](#windows-command-prompt-cmd)
+   - [macOS](#macos)
+   - [Linux](#linux)
+4. [Finding your gateway FQDN](#finding-your-gateway-fqdn) — which gateway to use for your platform
+5. [Configuration Options](#configuration-options) — every flag and environment variable
+   - [Required](#required)
+   - [Query options](#query-options)
+   - [Resilience options](#resilience-options)
+   - [Output & logging options](#output--logging-options)
+6. [Filters](#filters) — JSON filter format and quoting per shell
+7. [Date window (`assetLastUpdated`)](#date-window-assetlastupdated) — default 7 days, or all assets
+8. [Extra URL parameters](#extra-url-parameters) — `includeFields`, `softwareType`, and more
+9. [Usage Examples](#usage-examples) — common command lines
+10. [How It Works](#how-it-works) — auth, count, and paginated download
+    - [Authentication](#authentication)
+    - [Retries and error handling](#retries-and-error-handling)
+    - [Zero assets and incomplete downloads](#zero-assets-and-incomplete-downloads)
+11. [Output](#output) — folder layout and JSON files
+12. [Logging & Monitoring](#logging--monitoring) — log format, progress, and monitors
+13. [Exit Codes](#exit-codes) — for schedulers and pipelines
+14. [Troubleshooting](#troubleshooting) — common errors and fixes
+15. [Security Notes](#security-notes) — handling credentials and output
+16. [Requirements](#requirements)
+17. [References](#references)
+18. [License](#license)
+
+---
+
 ## Features
 
 - **Single file, functions only** — easy to download, read, and maintain.
@@ -31,6 +65,8 @@ A single-file, production-ready Python tool that:
 - **Test mode** — `--max-pages` stops after a set number of API calls.
 - **Safe output** — files are written as `.part` and renamed on completion, so an interrupted run never leaves a truncated JSON file.
 - **Graceful Ctrl+C / EOF handling** with clean monitor shutdown and meaningful exit codes.
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -121,6 +157,8 @@ tail -f qualys_asset_inventory_*/getassetinventory.log
 # Windows PowerShell
 Get-Content (Get-ChildItem qualys_asset_inventory_*\getassetinventory.log | Select-Object -Last 1) -Wait
 ```
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -280,6 +318,8 @@ notepad "$($run.FullName)\getassetinventory.log"
 deactivate
 ```
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ### Windows Command Prompt (cmd)
@@ -414,6 +454,8 @@ notepad %RUN%\getassetinventory.log
 deactivate
 ```
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ### macOS
@@ -547,6 +589,8 @@ open "$RUN"                               # open the folder in Finder
 ```bash
 deactivate
 ```
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -692,11 +736,15 @@ less "$RUN/getassetinventory.log"
 deactivate
 ```
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ## Finding your gateway FQDN
 
 Use the gateway for the Qualys platform your subscription is on, for example `gateway.qg1.apps.qualys.com`, `gateway.qg2.apps.qualys.com`, or `gateway.qg1.apps.qualys.eu`. See the [Qualys Platform Identification](https://www.qualys.com/platform-identification/) page for the full list. Pass the FQDN only; `https://` is added automatically (a leading `https://` or trailing `/` is also accepted).
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -745,6 +793,8 @@ Boolean environment variables accept `true/false`, `yes/no`, `1/0`, or `on/off`.
 
 Run `python3 getassetinventory.py -h` for the built-in help.
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ## Filters
@@ -778,6 +828,8 @@ python getassetinventory.py
 python getassetinventory.py --filter @filter.json
 ```
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ## Date window (`assetLastUpdated`)
@@ -789,6 +841,8 @@ python3 getassetinventory.py --assetLastUpdated 1970-01-01T00:00:00Z
 ```
 
 Accepted formats (UTC): `2026-09-01T00:00:00Z`, `2026-09-01T00:00Z`, `2026-09-01T00:00:00`, `2026-09-01`. Values are converted to the API format `yyyy-MM-ddTHH:mmZ`; both the input and converted values are logged.
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -809,6 +863,8 @@ export q_url_params="includeFields=operatingSystem,hardware;softwareType=Applica
 ```
 
 `pageSize`, `lastSeenAssetId`, and `assetLastUpdated` are managed by the tool. If supplied through `--url-param`, they are ignored and a warning is logged; use `--page-size` and `--assetLastUpdated` instead.
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -835,6 +891,8 @@ python3 getassetinventory.py --max-retries 5 --retry-delay 10 --retry-max-delay 
 # Everything on the command line
 python3 getassetinventory.py -g gateway.qg1.apps.qualys.com -u myuser --page-size 200
 ```
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -899,6 +957,8 @@ That is about 52 minutes of worst-case waiting per API call before the run stops
 
 If a page still fails after all retries, the run stops (the cursor makes skipping a page impossible), keeps every file already written, logs the last good page number and `lastSeenAssetId`, and exits with code `1`.
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ## Output
@@ -920,6 +980,8 @@ Example: count all assets across the output files with `jq`:
 ```bash
 cat qualys_asset_inventory_*/asset_inventory_*.json | jq '.assetListData.asset | length' | paste -sd+ | bc
 ```
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -952,6 +1014,8 @@ Two background processes also write to the same log:
 1. **System Resource Monitor** — CPU, RAM, SWAP, and disk usage every 30 seconds.
 2. **File Monitor** — completed JSON files, total size, and any file still being written, every 30 seconds.
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ## Exit Codes
@@ -964,6 +1028,8 @@ Two background processes also write to the same log:
 | `130` | Interrupted by user (Ctrl+C or Ctrl+D) |
 
 Useful for schedulers and CI/CD pipelines.
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -983,6 +1049,8 @@ Useful for schedulers and CI/CD pipelines.
 - **Frequent 429 responses** → The tool backs off automatically; check the `X-RateLimit-*` values in the log against your subscription's limits.
 - **Garbled characters in the Windows console** → The log file is always UTF-8; open it in an editor that supports UTF-8.
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ## Security Notes
@@ -993,6 +1061,8 @@ Useful for schedulers and CI/CD pipelines.
 - Output files contain sensitive inventory data (hostnames, IPs, software, users). Store and share them accordingly.
 - Keep TLS verification enabled in production.
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ## Requirements
@@ -1001,6 +1071,8 @@ Useful for schedulers and CI/CD pipelines.
 - [`requests`](https://pypi.org/project/requests/)
 - [`psutil`](https://pypi.org/project/psutil/)
 - A Qualys subscription with CSAM / Global AssetView API access
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
 
 ---
 
@@ -1011,8 +1083,12 @@ Useful for schedulers and CI/CD pipelines.
 - [Supported Operators](https://docs.qualys.com/en/csam/api/appendix/supported_operators.htm)
 - Logging and monitoring design modeled on [dg-cafe/gethld](https://github.com/dg-cafe/gethld)
 
+<sub>[↑ Back to top](#table-of-contents)</sub>
+
 ---
 
 ## License
 
 This script is provided as-is under the Apache-2.0 License. Feel free to modify and use it in your environment.
+
+<sub>[↑ Back to top](#table-of-contents)</sub>
